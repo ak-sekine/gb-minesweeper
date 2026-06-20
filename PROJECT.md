@@ -173,7 +173,7 @@ Makefileは以下を行う。
     - [x] ビルド成果物の配置を決める
     - [x] Makefileの構成を決める
   - [x] ディレクトリ構成作成
-  - [ ] .gitignore作成
+  - [x] .gitignore作成
   - [ ] RGBDS最小ROM
 - [ ] 基本描画・入力
   - [ ] タイル画像
