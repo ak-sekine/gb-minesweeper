@@ -98,6 +98,12 @@ Makefileは以下を行う。
 
 `build/` には最終的に利用するROMのみを置き、実行時に不要な生成物は `obj/` に置く。
 
+### ROMヘッダ
+
+- ROMヘッダはrgbfixで設定する。
+- カートリッジタイプはROM ONLYとする。
+- タイトルはrgbfixで設定する。(プロジェクト名を使用する)
+
 ## 想定モジュール
 
 - `main`: 初期化、ゲームループ、状態遷移
@@ -164,7 +170,7 @@ Makefileは以下を行う。
 
 # WBS
 
-- [ ] 開発基盤
+- [x] 開発基盤
   - [x] GitHubリポジトリ作成
   - [x] PROJECT.md作成
   - [x] 使用するRGBDSバージョンを決める
@@ -174,7 +180,14 @@ Makefileは以下を行う。
     - [x] Makefileの構成を決める
   - [x] ディレクトリ構成作成
   - [x] .gitignore作成
-  - [ ] RGBDS最小ROM
+  - [x] RGBDS最小ROM
+    - [x] Makefileを作成する
+    - [x] 最小構成の `src/main.asm` を作成する
+    - [x] ROMエントリポイントを実装する
+    - [x] rgbfixでROMヘッダを設定する
+    - [x] `make` で `build/gb-minesweeper.gb` を生成する
+    - [x] `make clean` の動作を確認する
+    - [x] `make run` でエミュレータ起動を確認する
 - [ ] 基本描画・入力
   - [ ] タイル画像
   - [ ] 画面初期化
