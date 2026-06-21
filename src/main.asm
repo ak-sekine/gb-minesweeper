@@ -14,9 +14,12 @@ Main::
     ld sp, $DFFF
     call GraphicsInit
     call Input_Init
+    call WaitVBlank
+    call Cursor_Init
 .loop:
     call WaitVBlank
     call Input_Update
+    call Cursor_Update
     jr .loop
 
 ; Wait for a new VBlank edge so the game loop runs exactly once per frame.

@@ -7,12 +7,18 @@ DEF rSCY  EQU $FF42
 DEF rSCX  EQU $FF43
 DEF rLY   EQU $FF44
 DEF rBGP  EQU $FF47
+DEF rOBP0 EQU $FF48
 
-; LCDC flags used by the BG-only screen
+; LCDC flags
 DEF LCDCF_ON     EQU %10000000
 DEF LCDCF_BG8000 EQU %00010000
+DEF LCDCF_OBJON  EQU %00000010
 DEF LCDCF_BG9800 EQU %00000000
 DEF LCDCF_BGON   EQU %00000001
+
+; Object Attribute Memory contains 40 four-byte Sprite entries.
+DEF OAM_BASE EQU $FE00
+DEF OAM_SIZE EQU 40 * 4
 
 ; Writing a zero selects the corresponding active-low joypad group.
 DEF P1F_GET_BUTTONS EQU %00010000

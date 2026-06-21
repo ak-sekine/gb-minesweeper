@@ -9,13 +9,15 @@ GraphicsInit::
     call ClearBGMap
     call DrawStatusBar
     call DrawClosedBoard
+    call ClearOAM
 
     xor a
     ldh [rSCX], a
     ldh [rSCY], a
     ld a, %11100100
     ldh [rBGP], a
-    ld a, LCDCF_ON | LCDCF_BG8000 | LCDCF_BG9800 | LCDCF_BGON
+    ldh [rOBP0], a
+    ld a, LCDCF_ON | LCDCF_BG8000 | LCDCF_OBJON | LCDCF_BG9800 | LCDCF_BGON
     ldh [rLCDC], a
     ret
 
@@ -73,6 +75,16 @@ ClearBGMap:
     ld a, b
     or c
     ld a, d
+    jr nz, .loop
+    ret
+
+ClearOAM:
+    xor a
+    ld hl, OAM_BASE
+    ld b, OAM_SIZE
+.loop:
+    ld [hli], a
+    dec b
     jr nz, .loop
     ret
 

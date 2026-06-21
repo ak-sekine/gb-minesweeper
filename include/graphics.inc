@@ -13,6 +13,7 @@ DEF STATUS_BG_Y       EQU 0
 
 ; Game tiles 0-14 follow the order documented in PROJECT.md.
 DEF TILE_CLOSED       EQU 0
+DEF TILE_CURSOR       EQU 14
 DEF TILE_BLANK        EQU 15
 DEF TILE_DIGIT_0      EQU 16
 DEF TILE_COLON        EQU 26
