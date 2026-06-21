@@ -8,5 +8,8 @@ EntryPoint::
 SECTION "Main", ROM0[$0150]
 
 Main::
+    di
+    ld sp, $DFFF
+    call GraphicsInit
 .loop:
     jr .loop
