@@ -11,7 +11,10 @@ wCursorY::
 
 SECTION "Cursor", ROM0
 
-; Initializes the grid cursor at the top-left cell and updates Sprite 0.
+DEF CURSOR_FRAME_OFFSET EQU 4
+DEF CURSOR_SPRITE_BYTES EQU 4
+
+; Initializes the grid cursor at the top-left cell and updates Sprites 0-3.
 ; Call during VBlank when the LCD is enabled.
 Cursor_Init::
     xor a
@@ -21,7 +24,7 @@ Cursor_Init::
 
 ; Moves at most one cell per axis for newly pressed directional buttons.
 ; Opposing buttons use Right and Down as their respective priorities.
-; Clobbers: AF, B
+; Clobbers: AF, B, C
 Cursor_Update::
     ld a, [wJoyPressed]
     ld b, a
@@ -66,7 +69,8 @@ Cursor_Update::
     dec a
     ld [wCursorY], a
 
-; Converts grid coordinates to Game Boy OAM coordinates and writes Sprite 0.
+; Converts grid coordinates to Game Boy OAM coordinates and writes Sprites 0-3.
+; The 16x16 frame is offset 4 pixels up-left from the selected 8x8 cell.
 ; OAM X is screen X + 8, and OAM Y is screen Y + 16.
 ; Call only while OAM is accessible, normally during VBlank.
 Cursor_UpdateSprite::
@@ -74,18 +78,57 @@ Cursor_UpdateSprite::
     add a
     add a
     add a
-    add BOARD_BG_Y * 8 + 16
-    ld [OAM_BASE], a
+    add BOARD_BG_Y * 8 + 16 - CURSOR_FRAME_OFFSET
+    ld b, a
 
     ld a, [wCursorX]
     add a
     add a
     add a
-    add BOARD_BG_X * 8 + 8
-    ld [OAM_BASE + 1], a
+    add BOARD_BG_X * 8 + 8 - CURSOR_FRAME_OFFSET
+    ld c, a
 
-    ld a, TILE_CURSOR
+    ; Sprite 0: top-left
+    ld a, b
+    ld [OAM_BASE], a
+    ld a, c
+    ld [OAM_BASE + 1], a
+    ld a, TILE_CURSOR_TL
     ld [OAM_BASE + 2], a
     xor a
     ld [OAM_BASE + 3], a
+
+    ; Sprite 1: top-right
+    ld a, b
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES], a
+    ld a, c
+    add 8
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES + 1], a
+    ld a, TILE_CURSOR_TR
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES + 2], a
+    xor a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES + 3], a
+
+    ; Sprite 2: bottom-left
+    ld a, b
+    add 8
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 2], a
+    ld a, c
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 2 + 1], a
+    ld a, TILE_CURSOR_BL
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 2 + 2], a
+    xor a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 2 + 3], a
+
+    ; Sprite 3: bottom-right
+    ld a, b
+    add 8
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3], a
+    ld a, c
+    add 8
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3 + 1], a
+    ld a, TILE_CURSOR_BR
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3 + 2], a
+    xor a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3 + 3], a
     ret

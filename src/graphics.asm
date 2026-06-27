@@ -14,8 +14,11 @@ GraphicsInit::
     xor a
     ldh [rSCX], a
     ldh [rSCY], a
+    ; BG palette: color numbers 0-3 map from lightest to darkest.
     ld a, %11100100
     ldh [rBGP], a
+    ; Cursor Sprite palette: color 0 is transparent, color 1 is lightest.
+    ld a, %11100001
     ldh [rOBP0], a
     ld a, LCDCF_ON | LCDCF_BG8000 | LCDCF_OBJON | LCDCF_BG9800 | LCDCF_BGON
     ldh [rLCDC], a
@@ -39,7 +42,7 @@ LoadTiles:
     ld bc, TilesEnd - Tiles
     call CopyBytes
 
-    ; Tile 15 is a blank background tile used to clear the tile map.
+    ; TILE_BLANK is a generated blank background tile used to clear the tile map.
     xor a
     ld hl, $8000 + TILE_BLANK * TILE_BYTES
     ld b, TILE_BYTES
@@ -52,6 +55,12 @@ LoadTiles:
     ld hl, FontTiles
     ld de, $8000 + TILE_DIGIT_0 * TILE_BYTES
     ld bc, FONT_UI_TILE_COUNT * TILE_BYTES
+    call CopyBytes
+
+    ; Cursor Sprite tiles are stored separately from BG tiles at VRAM tiles 52-55.
+    ld hl, CursorTiles
+    ld de, $8000 + TILE_CURSOR_TL * TILE_BYTES
+    ld bc, CURSOR_TILE_COUNT * TILE_BYTES
     jp CopyBytes
 
 CopyBytes:
@@ -132,3 +141,6 @@ TilesEnd:
 
 FontTiles:
     INCBIN "obj/font.2bpp"
+
+CursorTiles:
+    INCBIN "obj/cursor.2bpp"
