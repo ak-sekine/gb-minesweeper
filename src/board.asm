@@ -2,7 +2,7 @@ INCLUDE "graphics.inc"
 INCLUDE "input.inc"
 
 ; Development-only mine placement check. Set to 0 before final release.
-DEF DEBUG_SHOW_MINES EQU 1
+DEF DEBUG_SHOW_MINES EQU 0
 
 DEF BOARD_CELL_COUNT EQU BOARD_WIDTH * BOARD_HEIGHT
 DEF MINE_COUNT       EQU 10
@@ -41,12 +41,6 @@ ENDC
     dec b
     jr nz, .clear
     ret
-
-Board_HandleInput::
-    ld a, [wJoyPressed]
-    and PAD_A
-    ret z
-    jp Board_PlaceMinesIfNeeded
 
 Board_UpdateDebugDisplay::
 IF DEBUG_SHOW_MINES

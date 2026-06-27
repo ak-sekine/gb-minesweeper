@@ -16,14 +16,16 @@ Main::
     call Input_Init
     call Random_Init
     call Board_Init
+    call Game_Init
     call WaitVBlank
     call Cursor_Init
 .loop:
     call WaitVBlank
     call Board_UpdateDebugDisplay
+    call Game_UpdateDisplay
     call Random_UpdateFrameCounter
     call Input_Update
-    call Board_HandleInput
+    call Game_HandleInput
     call Cursor_Update
     jr .loop
 

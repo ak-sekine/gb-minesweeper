@@ -45,6 +45,7 @@ $(OBJ_DIR)/input.o: $(INCLUDE_DIR)/input.inc $(INCLUDE_DIR)/hardware.inc
 $(OBJ_DIR)/main.o: $(INCLUDE_DIR)/hardware.inc
 $(OBJ_DIR)/cursor.o: $(INCLUDE_DIR)/graphics.inc $(INCLUDE_DIR)/input.inc $(INCLUDE_DIR)/hardware.inc
 $(OBJ_DIR)/board.o: $(INCLUDE_DIR)/graphics.inc $(INCLUDE_DIR)/input.inc
+$(OBJ_DIR)/game.o: $(INCLUDE_DIR)/graphics.inc $(INCLUDE_DIR)/input.inc
 
 $(OBJ_DIR)/font.2bpp: assets/font.png | $(OBJ_DIR)
 	$(RGBGFX) -c "$(RGBGFX_BG_COLORS)" -L 0,0:16,3 -o $@ $<
