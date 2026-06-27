@@ -10,6 +10,8 @@ SECTION "Game WRAM", WRAM0
 
 wGameDrawQueue::
     ds BOARD_CELL_COUNT
+wGameDrawTileQueue::
+    ds BOARD_CELL_COUNT
 wGameDrawHead::
     ds 1
 wGameDrawTail::
@@ -25,6 +27,8 @@ wOpenQueueTail::
 wGameWorkIndex::
     ds 1
 wGameWorkCell::
+    ds 1
+wGameDrawTileValue::
     ds 1
 wGameCenterX::
     ds 1
@@ -53,30 +57,47 @@ Game_UpdateDisplay::
     add hl, bc
     ld a, [hl]
     ld [wGameWorkIndex], a
+    ld hl, wGameDrawTileQueue
+    add hl, bc
+    ld a, [hl]
+    ld [wGameWorkCell], a
 
     ld a, [wGameDrawHead]
     inc a
     ld [wGameDrawHead], a
 
     call Game_GetBGAddressForWorkIndex
+    ld a, [wGameWorkCell]
+    and a
+    jr nz, .useQueuedTile
     push hl
     call Game_GetTileForWorkIndex
     pop hl
+    jr .storeTile
+.useQueuedTile:
+    dec a
+.storeTile:
     ld [hl], a
     ret
 
 Game_HandleInput::
     ld a, [wJoyPressed]
     and PAD_A
-    ret z
+    jr z, .checkFlag
 
-    call Board_PlaceMinesIfNeeded
-    call Game_OpenCursorCell
-    ret
-
-Game_OpenCursorCell:
     call Game_GetCursorIndex
     ld [wGameWorkIndex], a
+    call Board_PlaceMinesIfNeeded
+    call Game_OpenWorkIndex
+    ret
+
+.checkFlag:
+    ld a, [wJoyPressed]
+    and PAD_B
+    ret z
+    jp Game_ToggleCursorFlag
+
+Game_OpenWorkIndex:
     call Game_GetCellAddressForWorkIndex
     bit CELL_OPENED_BIT, [hl]
     ret nz
@@ -86,7 +107,7 @@ Game_OpenCursorCell:
     set CELL_OPENED_BIT, [hl]
     ld a, [hl]
     ld [wGameWorkCell], a
-    call Game_EnqueueDrawWorkIndex
+    call Game_EnqueueDrawWorkIndexAuto
 
     ld a, [wGameWorkCell]
     bit CELL_MINE_BIT, a
@@ -186,12 +207,33 @@ Game_TryOpenNeighbor:
     set CELL_OPENED_BIT, [hl]
     ld a, [hl]
     ld [wGameWorkCell], a
-    call Game_EnqueueDrawWorkIndex
+    call Game_EnqueueDrawWorkIndexAuto
 
     ld a, [wGameWorkCell]
     and $0F
     ret nz
     jp Game_EnqueueOpenXY
+
+Game_ToggleCursorFlag:
+    call Game_GetCursorIndex
+    ld [wGameWorkIndex], a
+    call Game_GetCellAddressForWorkIndex
+    bit CELL_OPENED_BIT, [hl]
+    ret nz
+    bit CELL_FLAG_BIT, [hl]
+    jr nz, .clearFlag
+
+    set CELL_FLAG_BIT, [hl]
+    ld a, TILE_FLAG
+    jr .draw
+
+.clearFlag:
+    res CELL_FLAG_BIT, [hl]
+    ld a, TILE_CLOSED
+
+.draw:
+    ld [wGameWorkCell], a
+    jp Game_EnqueueDrawWorkIndexWithTile
 
 Game_InitOpenQueue:
     xor a
@@ -233,6 +275,16 @@ Game_DequeueOpenXY:
     ld [wOpenQueueHead], a
     ret
 
+Game_EnqueueDrawWorkIndexAuto:
+    xor a
+    ld [wGameDrawTileValue], a
+    jr Game_EnqueueDrawWorkIndex
+
+Game_EnqueueDrawWorkIndexWithTile:
+    ld a, [wGameWorkCell]
+    inc a
+    ld [wGameDrawTileValue], a
+
 Game_EnqueueDrawWorkIndex:
     ld a, [wGameDrawHead]
     ld b, a
@@ -251,6 +303,10 @@ Game_EnqueueDrawWorkIndex:
     ld hl, wGameDrawQueue
     add hl, bc
     ld a, [wGameWorkIndex]
+    ld [hl], a
+    ld hl, wGameDrawTileQueue
+    add hl, bc
+    ld a, [wGameDrawTileValue]
     ld [hl], a
     ld a, [wGameDrawTail]
     inc a
@@ -291,7 +347,9 @@ Game_XYToIndex:
     add a
     add a
     add b
-    add e
+    ld b, a
+    ld a, e
+    add b
     ret
 
 Game_GetBGAddressForWorkIndex:
