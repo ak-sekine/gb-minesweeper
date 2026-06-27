@@ -1,37 +1,68 @@
 INCLUDE "graphics.inc"
 INCLUDE "input.inc"
 
-DEF CELL_MINE_BIT   EQU 4
-DEF CELL_OPENED_BIT EQU 5
+DEF BOARD_CELL_COUNT EQU BOARD_WIDTH * BOARD_HEIGHT
+DEF CELL_MINE_BIT    EQU 4
+DEF CELL_OPENED_BIT  EQU 5
+DEF CELL_FLAG_BIT    EQU 6
 
 SECTION "Game WRAM", WRAM0
 
-wGameDrawPending::
+wGameDrawQueue::
+    ds BOARD_CELL_COUNT
+wGameDrawHead::
     ds 1
-wGameDrawTile::
+wGameDrawTail::
     ds 1
-wGameDrawBGAddress::
-    ds 2
+wOpenQueueX::
+    ds BOARD_CELL_COUNT
+wOpenQueueY::
+    ds BOARD_CELL_COUNT
+wOpenQueueHead::
+    ds 1
+wOpenQueueTail::
+    ds 1
+wGameWorkIndex::
+    ds 1
+wGameWorkCell::
+    ds 1
+wGameCenterX::
+    ds 1
+wGameCenterY::
+    ds 1
 
 SECTION "Game", ROM0
 
 Game_Init::
     xor a
-    ld [wGameDrawPending], a
+    ld [wGameDrawHead], a
+    ld [wGameDrawTail], a
     ret
 
 Game_UpdateDisplay::
-    ld a, [wGameDrawPending]
-    and a
+    ld a, [wGameDrawHead]
+    ld b, a
+    ld a, [wGameDrawTail]
+    cp b
     ret z
-    ld a, [wGameDrawBGAddress]
-    ld l, a
-    ld a, [wGameDrawBGAddress + 1]
-    ld h, a
-    ld a, [wGameDrawTile]
+
+    ld a, b
+    ld c, a
+    ld b, 0
+    ld hl, wGameDrawQueue
+    add hl, bc
+    ld a, [hl]
+    ld [wGameWorkIndex], a
+
+    ld a, [wGameDrawHead]
+    inc a
+    ld [wGameDrawHead], a
+
+    call Game_GetBGAddressForWorkIndex
+    push hl
+    call Game_GetTileForWorkIndex
+    pop hl
     ld [hl], a
-    xor a
-    ld [wGameDrawPending], a
     ret
 
 Game_HandleInput::
@@ -44,57 +75,238 @@ Game_HandleInput::
     ret
 
 Game_OpenCursorCell:
-    call Game_GetCursorCellAddress
+    call Game_GetCursorIndex
+    ld [wGameWorkIndex], a
+    call Game_GetCellAddressForWorkIndex
     bit CELL_OPENED_BIT, [hl]
+    ret nz
+    bit CELL_FLAG_BIT, [hl]
     ret nz
 
     set CELL_OPENED_BIT, [hl]
     ld a, [hl]
-    bit CELL_MINE_BIT, [hl]
-    jr z, .numberTile
-    ld a, TILE_MINE
-    jr .draw
+    ld [wGameWorkCell], a
+    call Game_EnqueueDrawWorkIndex
 
-.numberTile:
+    ld a, [wGameWorkCell]
+    bit CELL_MINE_BIT, a
+    ret nz
     and $0F
-    add TILE_OPEN_0
+    ret nz
 
-.draw:
+    call Game_InitOpenQueue
+    ld a, [wCursorX]
+    ld e, a
+    ld a, [wCursorY]
     ld d, a
-    call Game_GetCursorBGAddress
-    ld a, d
-    ld [wGameDrawTile], a
-    ld a, l
-    ld [wGameDrawBGAddress], a
-    ld a, h
-    ld [wGameDrawBGAddress + 1], a
-    ld a, 1
-    ld [wGameDrawPending], a
+    call Game_EnqueueOpenXY
+    jp Game_ProcessOpenQueue
+
+Game_ProcessOpenQueue:
+    ld a, [wOpenQueueHead]
+    ld b, a
+    ld a, [wOpenQueueTail]
+    cp b
+    ret z
+
+    call Game_DequeueOpenXY
+    call Game_OpenNeighborsOfCenter
+    jr Game_ProcessOpenQueue
+
+Game_OpenNeighborsOfCenter:
+    ld a, [wGameCenterY]
+    and a
+    jr z, .sameRow
+    dec a
+    ld d, a
+    call Game_OpenNeighborRow
+
+.sameRow:
+    ld a, [wGameCenterY]
+    ld d, a
+    call Game_OpenSideNeighbors
+
+    ld a, [wGameCenterY]
+    cp BOARD_HEIGHT - 1
+    ret z
+    inc a
+    ld d, a
+    jp Game_OpenNeighborRow
+
+Game_OpenNeighborRow:
+    ld a, [wGameCenterX]
+    and a
+    jr z, .center
+    dec a
+    ld e, a
+    push de
+    call Game_TryOpenNeighbor
+    pop de
+.center:
+    ld a, [wGameCenterX]
+    ld e, a
+    push de
+    call Game_TryOpenNeighbor
+    pop de
+    ld a, [wGameCenterX]
+    cp BOARD_WIDTH - 1
+    ret z
+    inc a
+    ld e, a
+    jp Game_TryOpenNeighbor
+
+Game_OpenSideNeighbors:
+    ld a, [wGameCenterX]
+    and a
+    jr z, .right
+    dec a
+    ld e, a
+    push de
+    call Game_TryOpenNeighbor
+    pop de
+.right:
+    ld a, [wGameCenterX]
+    cp BOARD_WIDTH - 1
+    ret z
+    inc a
+    ld e, a
+    jp Game_TryOpenNeighbor
+
+Game_TryOpenNeighbor:
+    call Game_XYToIndex
+    ld [wGameWorkIndex], a
+    call Game_GetCellAddressForWorkIndex
+    bit CELL_OPENED_BIT, [hl]
+    ret nz
+    bit CELL_FLAG_BIT, [hl]
+    ret nz
+    bit CELL_MINE_BIT, [hl]
+    ret nz
+
+    set CELL_OPENED_BIT, [hl]
+    ld a, [hl]
+    ld [wGameWorkCell], a
+    call Game_EnqueueDrawWorkIndex
+
+    ld a, [wGameWorkCell]
+    and $0F
+    ret nz
+    jp Game_EnqueueOpenXY
+
+Game_InitOpenQueue:
+    xor a
+    ld [wOpenQueueHead], a
+    ld [wOpenQueueTail], a
     ret
 
-Game_GetCursorCellAddress:
-    call Game_GetCursorIndex
+Game_EnqueueOpenXY:
+    ld a, [wOpenQueueTail]
+    cp BOARD_CELL_COUNT
+    ret nc
+    ld c, a
+    ld b, 0
+    ld hl, wOpenQueueX
+    add hl, bc
+    ld [hl], e
+    ld hl, wOpenQueueY
+    add hl, bc
+    ld [hl], d
+    ld a, [wOpenQueueTail]
+    inc a
+    ld [wOpenQueueTail], a
+    ret
+
+Game_DequeueOpenXY:
+    ld a, [wOpenQueueHead]
+    ld c, a
+    ld b, 0
+    ld hl, wOpenQueueX
+    add hl, bc
+    ld a, [hl]
+    ld [wGameCenterX], a
+    ld hl, wOpenQueueY
+    add hl, bc
+    ld a, [hl]
+    ld [wGameCenterY], a
+    ld a, [wOpenQueueHead]
+    inc a
+    ld [wOpenQueueHead], a
+    ret
+
+Game_EnqueueDrawWorkIndex:
+    ld a, [wGameDrawHead]
+    ld b, a
+    ld a, [wGameDrawTail]
+    cp b
+    jr nz, .enqueue
+    xor a
+    ld [wGameDrawHead], a
+    ld [wGameDrawTail], a
+.enqueue:
+    ld a, [wGameDrawTail]
+    cp BOARD_CELL_COUNT
+    ret nc
+    ld c, a
+    ld b, 0
+    ld hl, wGameDrawQueue
+    add hl, bc
+    ld a, [wGameWorkIndex]
+    ld [hl], a
+    ld a, [wGameDrawTail]
+    inc a
+    ld [wGameDrawTail], a
+    ret
+
+Game_GetCellAddressForWorkIndex:
+    ld a, [wGameWorkIndex]
     ld c, a
     ld b, 0
     ld hl, wBoard
     add hl, bc
     ret
 
-Game_GetCursorIndex:
-    ld a, [wCursorY]
-    ld b, a
-    add a
-    add a
-    add a
-    add b
-    ld b, a
-    ld a, [wCursorX]
-    add b
+Game_GetTileForWorkIndex:
+    call Game_GetCellAddressForWorkIndex
+    ld a, [hl]
+    bit CELL_MINE_BIT, [hl]
+    jr z, .numberTile
+    ld a, TILE_MINE
+    ret
+.numberTile:
+    and $0F
+    add TILE_OPEN_0
     ret
 
-Game_GetCursorBGAddress:
-    ld hl, BG_MAP + BOARD_BG_Y * BG_MAP_WIDTH + BOARD_BG_X
+Game_GetCursorIndex:
     ld a, [wCursorY]
+    ld d, a
+    ld a, [wCursorX]
+    ld e, a
+    jp Game_XYToIndex
+
+Game_XYToIndex:
+    ld a, d
+    ld b, a
+    add a
+    add a
+    add a
+    add b
+    add e
+    ret
+
+Game_GetBGAddressForWorkIndex:
+    ld a, [wGameWorkIndex]
+    ld d, 0
+.rowLoop:
+    cp BOARD_WIDTH
+    jr c, .gotXY
+    sub BOARD_WIDTH
+    inc d
+    jr .rowLoop
+.gotXY:
+    ld e, a
+    ld hl, BG_MAP + BOARD_BG_Y * BG_MAP_WIDTH + BOARD_BG_X
+    ld a, d
     and a
     jr z, .addX
 .addRow:
@@ -103,8 +315,7 @@ Game_GetCursorBGAddress:
     dec a
     jr nz, .addRow
 .addX:
-    ld a, [wCursorX]
-    ld c, a
+    ld c, e
     ld b, 0
     add hl, bc
     ret

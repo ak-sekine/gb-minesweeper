@@ -21,8 +21,10 @@ Main::
     call Cursor_Init
 .loop:
     call WaitVBlank
+    ; Keep VRAM/OAM writes at the start of VBlank. Game logic may run longer.
     call Board_UpdateDebugDisplay
     call Game_UpdateDisplay
+    call Cursor_UpdateSprite
     call Random_UpdateFrameCounter
     call Input_Update
     call Game_HandleInput

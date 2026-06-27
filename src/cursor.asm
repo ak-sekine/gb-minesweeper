@@ -54,20 +54,21 @@ Cursor_Update::
     jr z, .checkUp
     ld a, [wCursorY]
     cp BOARD_HEIGHT - 1
-    jr z, Cursor_UpdateSprite
+    ret z
     inc a
     ld [wCursorY], a
-    jr Cursor_UpdateSprite
+    ret
 
 .checkUp:
     ld a, b
     and PAD_UP
-    jr z, Cursor_UpdateSprite
+    ret z
     ld a, [wCursorY]
     and a
-    jr z, Cursor_UpdateSprite
+    ret z
     dec a
     ld [wCursorY], a
+    ret
 
 ; Converts grid coordinates to Game Boy OAM coordinates and writes Sprites 0-3.
 ; The 16x16 frame is offset 4 pixels up-left from the selected 8x8 cell.
