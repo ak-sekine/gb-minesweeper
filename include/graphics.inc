@@ -17,6 +17,7 @@ DEF CURSOR_TILE_COUNT EQU 4
 
 ; BG tiles follow the order documented in PROJECT.md.
 DEF TILE_CLOSED       EQU 0
+DEF TILE_MINE         EQU 11
 DEF TILE_BLANK        EQU 14
 DEF TILE_DIGIT_0      EQU 15
 DEF TILE_COLON        EQU 25

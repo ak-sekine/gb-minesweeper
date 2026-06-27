@@ -14,11 +14,16 @@ Main::
     ld sp, $DFFF
     call GraphicsInit
     call Input_Init
+    call Random_Init
+    call Board_Init
     call WaitVBlank
     call Cursor_Init
 .loop:
     call WaitVBlank
+    call Board_UpdateDebugDisplay
+    call Random_UpdateFrameCounter
     call Input_Update
+    call Board_HandleInput
     call Cursor_Update
     jr .loop
 
