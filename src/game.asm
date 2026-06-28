@@ -52,6 +52,8 @@ wGameClear::
     ds 1
 wGameRestartDrawPending::
     ds 1
+wGameTitleDrawPending::
+    ds 1
 wGameFlagCount::
     ds 1
 wGameMineDrawPending::
@@ -71,6 +73,7 @@ Game_InitTitle::
     ld [wGameOver], a
     ld [wGameClear], a
     ld [wGameRestartDrawPending], a
+    ld [wGameTitleDrawPending], a
     ld [wGameFlagCount], a
     ld [wGameMineDrawPending], a
     inc a
@@ -87,12 +90,22 @@ Game_Init::
     ld [wGameOver], a
     ld [wGameClear], a
     ld [wGameRestartDrawPending], a
+    ld [wGameTitleDrawPending], a
     ld [wGameFlagCount], a
     ld [wGameMineDrawPending], a
     ld [wGameTitle], a
     ret
 
 Game_UpdateDisplay::
+    ld a, [wGameTitleDrawPending]
+    and a
+    jr z, .checkRestartDraw
+
+    xor a
+    ld [wGameTitleDrawPending], a
+    jp Graphics_DrawTitleScreen
+
+.checkRestartDraw:
     ld a, [wGameRestartDrawPending]
     and a
     jr z, .updateQueuedCell
@@ -210,7 +223,7 @@ Game_HandleInput::
     ld a, [wJoyPressed]
     and PAD_START
     ret z
-    jp Game_RestartAfterEnd
+    jp Game_ReturnToTitleAfterEnd
 
 .handlePlaying:
     ld a, [wJoyPressed]
@@ -482,6 +495,12 @@ Game_RestartAfterEnd:
     call Game_Init
     ld a, 1
     ld [wGameRestartDrawPending], a
+    ret
+
+Game_ReturnToTitleAfterEnd:
+    call Game_InitTitle
+    ld a, 1
+    ld [wGameTitleDrawPending], a
     ret
 
 Game_StartFromTitle:

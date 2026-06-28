@@ -33,7 +33,11 @@ Graphics_ResetPlayfield::
     jp EnableLCD
 
 Graphics_DrawTitleScreen::
-    jp DrawTitleScreen
+    call DisableLCD
+    call LoadTiles
+    call ClearOAM
+    call DrawTitleScreen
+    jp EnableLCD
 
 DisableLCD:
     ldh a, [rLCDC]
