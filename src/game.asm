@@ -2,6 +2,7 @@ INCLUDE "graphics.inc"
 INCLUDE "input.inc"
 
 DEF BOARD_CELL_COUNT EQU BOARD_WIDTH * BOARD_HEIGHT
+DEF MINE_COUNT       EQU 10
 DEF CELL_MINE_BIT    EQU 4
 DEF CELL_OPENED_BIT  EQU 5
 DEF CELL_FLAG_BIT    EQU 6
@@ -11,6 +12,7 @@ DEF GAME_OVER_BG_Y     EQU 14
 DEF CLEAR_TEXT_LEN     EQU 5
 DEF CLEAR_BG_X         EQU 7
 DEF CLEAR_BG_Y         EQU GAME_OVER_BG_Y
+DEF STATUS_MINE_DIGITS_X EQU STATUS_BG_X + 5
 
 SECTION "Game WRAM", WRAM0
 
@@ -50,6 +52,10 @@ wGameClear::
     ds 1
 wGameRestartDrawPending::
     ds 1
+wGameFlagCount::
+    ds 1
+wGameMineDrawPending::
+    ds 1
 
 SECTION "Game", ROM0
 
@@ -63,6 +69,8 @@ Game_Init::
     ld [wGameOver], a
     ld [wGameClear], a
     ld [wGameRestartDrawPending], a
+    ld [wGameFlagCount], a
+    ld [wGameMineDrawPending], a
     ret
 
 Game_UpdateDisplay::
@@ -75,6 +83,15 @@ Game_UpdateDisplay::
     jp Graphics_ResetPlayfield
 
 .updateQueuedCell:
+    ld a, [wGameMineDrawPending]
+    and a
+    jr z, .checkDrawQueue
+
+    xor a
+    ld [wGameMineDrawPending], a
+    jp Game_UpdateMineDisplay
+
+.checkDrawQueue:
     ld a, [wGameDrawHead]
     ld b, a
     ld a, [wGameDrawTail]
@@ -312,13 +329,29 @@ Game_ToggleCursorFlag:
     ret nz
     bit CELL_FLAG_BIT, [hl]
     jr nz, .clearFlag
+    ld a, [wGameFlagCount]
+    cp MINE_COUNT
+    ret nc
 
     set CELL_FLAG_BIT, [hl]
+    ld a, [wGameFlagCount]
+    inc a
+    ld [wGameFlagCount], a
+    ld a, 1
+    ld [wGameMineDrawPending], a
     ld a, TILE_FLAG
     jr .draw
 
 .clearFlag:
     res CELL_FLAG_BIT, [hl]
+    ld a, [wGameFlagCount]
+    and a
+    jr z, .skipDecrementFlagCount
+    dec a
+    ld [wGameFlagCount], a
+.skipDecrementFlagCount:
+    ld a, 1
+    ld [wGameMineDrawPending], a
     ld a, TILE_CLOSED
 
 .draw:
@@ -415,6 +448,32 @@ Game_RestartAfterEnd:
     call Game_Init
     ld a, 1
     ld [wGameRestartDrawPending], a
+    ret
+
+Game_UpdateMineDisplay:
+    ld hl, BG_MAP + STATUS_BG_Y * BG_MAP_WIDTH + STATUS_MINE_DIGITS_X
+    ld a, TILE_DIGIT_0
+    ld [hli], a
+
+    ld a, MINE_COUNT
+    ld b, a
+    ld a, [wGameFlagCount]
+    ld c, a
+    ld a, b
+    sub c
+    ld b, 0
+    cp 10
+    jr c, .storeDigits
+    sub 10
+    ld b, 1
+.storeDigits:
+    ld c, a
+    ld a, TILE_DIGIT_0
+    add b
+    ld [hli], a
+    ld a, TILE_DIGIT_0
+    add c
+    ld [hl], a
     ret
 
 GameOverText:
