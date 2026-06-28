@@ -5,6 +5,9 @@ DEF BOARD_CELL_COUNT EQU BOARD_WIDTH * BOARD_HEIGHT
 DEF CELL_MINE_BIT    EQU 4
 DEF CELL_OPENED_BIT  EQU 5
 DEF CELL_FLAG_BIT    EQU 6
+DEF GAME_OVER_TEXT_LEN EQU 9
+DEF GAME_OVER_BG_X     EQU 5
+DEF GAME_OVER_BG_Y     EQU 14
 
 SECTION "Game WRAM", WRAM0
 
@@ -34,6 +37,12 @@ wGameCenterX::
     ds 1
 wGameCenterY::
     ds 1
+wGameTriggeredMineIndex::
+    ds 1
+wGameOverMessageDrawIndex::
+    ds 1
+wGameOver::
+    ds 1
 
 SECTION "Game", ROM0
 
@@ -41,6 +50,8 @@ Game_Init::
     xor a
     ld [wGameDrawHead], a
     ld [wGameDrawTail], a
+    ld [wGameOverMessageDrawIndex], a
+    ld [wGameOver], a
     ret
 
 Game_UpdateDisplay::
@@ -48,7 +59,7 @@ Game_UpdateDisplay::
     ld b, a
     ld a, [wGameDrawTail]
     cp b
-    ret z
+    jp z, Game_UpdateGameOverMessage
 
     ld a, b
     ld c, a
@@ -80,7 +91,34 @@ Game_UpdateDisplay::
     ld [hl], a
     ret
 
+Game_UpdateGameOverMessage:
+    ld a, [wGameOver]
+    and a
+    ret z
+
+    ld a, [wGameOverMessageDrawIndex]
+    cp GAME_OVER_TEXT_LEN
+    ret nc
+
+    ld c, a
+    ld b, 0
+    ld hl, GameOverText
+    add hl, bc
+    ld a, [hl]
+    ld hl, BG_MAP + GAME_OVER_BG_Y * BG_MAP_WIDTH + GAME_OVER_BG_X
+    add hl, bc
+    ld [hl], a
+
+    ld a, [wGameOverMessageDrawIndex]
+    inc a
+    ld [wGameOverMessageDrawIndex], a
+    ret
+
 Game_HandleInput::
+    ld a, [wGameOver]
+    and a
+    ret nz
+
     ld a, [wJoyPressed]
     and PAD_A
     jr z, .checkFlag
@@ -107,11 +145,12 @@ Game_OpenWorkIndex:
     set CELL_OPENED_BIT, [hl]
     ld a, [hl]
     ld [wGameWorkCell], a
+    bit CELL_MINE_BIT, a
+    jp nz, Game_TriggerGameOver
+
     call Game_EnqueueDrawWorkIndexAuto
 
     ld a, [wGameWorkCell]
-    bit CELL_MINE_BIT, a
-    ret nz
     and $0F
     ret nz
 
@@ -234,6 +273,69 @@ Game_ToggleCursorFlag:
 .draw:
     ld [wGameWorkCell], a
     jp Game_EnqueueDrawWorkIndexWithTile
+
+Game_TriggerGameOver:
+    ld a, 1
+    ld [wGameOver], a
+
+    xor a
+    ld [wGameDrawHead], a
+    ld [wGameDrawTail], a
+    ld [wGameOverMessageDrawIndex], a
+
+    ld a, [wGameWorkIndex]
+    ld [wGameTriggeredMineIndex], a
+    xor a
+    ld [wGameWorkIndex], a
+
+.revealLoop:
+    call Game_GetCellAddressForWorkIndex
+    bit CELL_MINE_BIT, [hl]
+    jr nz, .mineCell
+    bit CELL_FLAG_BIT, [hl]
+    jr nz, .wrongFlagCell
+    jr .nextRevealCell
+
+.mineCell:
+    ld a, [wGameWorkIndex]
+    ld b, a
+    ld a, [wGameTriggeredMineIndex]
+    cp b
+    ld a, TILE_MINE
+    jr nz, .enqueueRevealTile
+    ld a, TILE_EXPLODED_MINE
+    jr .enqueueRevealTile
+
+.wrongFlagCell:
+    ld a, TILE_WRONG_FLAG
+
+.enqueueRevealTile:
+    ld [wGameWorkCell], a
+    call Game_EnqueueDrawWorkIndexWithTile
+
+.nextRevealCell:
+    ld a, [wGameWorkIndex]
+    inc a
+    ld [wGameWorkIndex], a
+    cp BOARD_CELL_COUNT
+    jr c, .revealLoop
+    ret
+
+Game_IsOver::
+    ld a, [wGameOver]
+    and a
+    ret
+
+GameOverText:
+    db TILE_LETTER_A + 'G' - 'A'
+    db TILE_LETTER_A + 'A' - 'A'
+    db TILE_LETTER_A + 'M' - 'A'
+    db TILE_LETTER_A + 'E' - 'A'
+    db TILE_BLANK
+    db TILE_LETTER_A + 'O' - 'A'
+    db TILE_LETTER_A + 'V' - 'A'
+    db TILE_LETTER_A + 'E' - 'A'
+    db TILE_LETTER_A + 'R' - 'A'
 
 Game_InitOpenQueue:
     xor a

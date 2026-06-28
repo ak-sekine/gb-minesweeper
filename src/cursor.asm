@@ -26,6 +26,9 @@ Cursor_Init::
 ; Opposing buttons use Right and Down as their respective priorities.
 ; Clobbers: AF, B, C
 Cursor_Update::
+    call Game_IsOver
+    ret nz
+
     ld a, [wJoyPressed]
     ld b, a
 
