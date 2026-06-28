@@ -7,8 +7,6 @@ GraphicsInit::
     call DisableLCD
     call LoadTiles
     call ClearBGMap
-    call DrawStatusBar
-    call DrawClosedBoard
     call ClearOAM
 
     xor a

@@ -32,6 +32,9 @@ Cursor_ResetPosition::
 ; Opposing buttons use Right and Down as their respective priorities.
 ; Clobbers: AF, B, C
 Cursor_Update::
+    call Game_IsTitle
+    ret nz
+
     call Game_IsEnded
     ret nz
 
@@ -84,6 +87,9 @@ Cursor_Update::
 ; OAM X is screen X + 8, and OAM Y is screen Y + 16.
 ; Call only while OAM is accessible, normally during VBlank.
 Cursor_UpdateSprite::
+    call Game_IsTitle
+    jp nz, Cursor_HideSprite
+
     ld a, [wCursorY]
     add a
     add a
@@ -141,4 +147,12 @@ Cursor_UpdateSprite::
     ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3 + 2], a
     xor a
     ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3 + 3], a
+    ret
+
+Cursor_HideSprite:
+    xor a
+    ld [OAM_BASE], a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES], a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 2], a
+    ld [OAM_BASE + CURSOR_SPRITE_BYTES * 3], a
     ret

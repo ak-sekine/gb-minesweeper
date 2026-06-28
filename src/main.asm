@@ -16,7 +16,7 @@ Main::
     call Input_Init
     call Random_Init
     call Board_Init
-    call Game_Init
+    call Game_InitTitle
     call WaitVBlank
     call Cursor_Init
 .loop:
