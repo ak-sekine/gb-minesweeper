@@ -28,6 +28,7 @@ GB_PALETTE = [
 
 CHARS = (
     "0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "©▶"
     "abcdefghijklmnopqrstuvwxyz"
     "あいうえおかきくけこさしすせそたちつてとなにぬねの"
     "はひふへほまみむめもやゆよらりるれろわをん"
