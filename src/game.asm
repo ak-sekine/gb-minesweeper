@@ -774,7 +774,7 @@ Game_DrawPauseMenuItem:
     cp c
     ld a, TILE_BLANK
     jr nz, .storeMarker
-    ld a, TILE_GREATER_THAN
+    ld a, TILE_BLACK_RIGHT_TRIANGLE
 .storeMarker:
     ld [de], a
     inc de
@@ -797,7 +797,7 @@ Game_UpdatePauseMenuCursor:
 
     ld a, [wGamePauseSelection]
     call Game_GetPauseMenuCursorAddress
-    ld a, TILE_GREATER_THAN
+    ld a, TILE_BLACK_RIGHT_TRIANGLE
     ld [hl], a
     ret
 
