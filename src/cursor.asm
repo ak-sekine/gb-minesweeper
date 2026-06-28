@@ -22,6 +22,12 @@ Cursor_Init::
     ld [wCursorY], a
     jp Cursor_UpdateSprite
 
+Cursor_ResetPosition::
+    xor a
+    ld [wCursorX], a
+    ld [wCursorY], a
+    ret
+
 ; Moves at most one cell per axis for newly pressed directional buttons.
 ; Opposing buttons use Right and Down as their respective priorities.
 ; Clobbers: AF, B, C

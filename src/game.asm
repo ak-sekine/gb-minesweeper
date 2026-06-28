@@ -48,6 +48,8 @@ wGameOver::
     ds 1
 wGameClear::
     ds 1
+wGameRestartDrawPending::
+    ds 1
 
 SECTION "Game", ROM0
 
@@ -55,12 +57,24 @@ Game_Init::
     xor a
     ld [wGameDrawHead], a
     ld [wGameDrawTail], a
+    ld [wOpenQueueHead], a
+    ld [wOpenQueueTail], a
     ld [wGameMessageDrawIndex], a
     ld [wGameOver], a
     ld [wGameClear], a
+    ld [wGameRestartDrawPending], a
     ret
 
 Game_UpdateDisplay::
+    ld a, [wGameRestartDrawPending]
+    and a
+    jr z, .updateQueuedCell
+
+    xor a
+    ld [wGameRestartDrawPending], a
+    jp Graphics_ResetPlayfield
+
+.updateQueuedCell:
     ld a, [wGameDrawHead]
     ld b, a
     ld a, [wGameDrawTail]
@@ -145,8 +159,14 @@ Game_UpdateEndMessage:
 
 Game_HandleInput::
     call Game_IsEnded
-    ret nz
+    jr z, .handlePlaying
 
+    ld a, [wJoyPressed]
+    and PAD_START
+    ret z
+    jp Game_RestartAfterEnd
+
+.handlePlaying:
     ld a, [wJoyPressed]
     and PAD_A
     jr z, .checkFlag
@@ -362,6 +382,9 @@ Game_IsEnded::
     ld b, a
     ld a, [wGameClear]
     or b
+    ld b, a
+    ld a, [wGameRestartDrawPending]
+    or b
     ret
 
 Game_CheckClear:
@@ -384,6 +407,14 @@ Game_TriggerClear:
 
     xor a
     ld [wGameMessageDrawIndex], a
+    ret
+
+Game_RestartAfterEnd:
+    call Board_Init
+    call Cursor_ResetPosition
+    call Game_Init
+    ld a, 1
+    ld [wGameRestartDrawPending], a
     ret
 
 GameOverText:

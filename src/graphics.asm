@@ -24,6 +24,11 @@ GraphicsInit::
     ldh [rLCDC], a
     ret
 
+Graphics_ResetPlayfield::
+    call DrawStatusBar
+    call DrawClosedBoard
+    jp ClearEndMessageRow
+
 DisableLCD:
     ldh a, [rLCDC]
     bit 7, a
@@ -122,6 +127,16 @@ DrawClosedBoard:
     add hl, de
     dec b
     jr nz, .row
+    ret
+
+ClearEndMessageRow:
+    ld hl, BG_MAP + 14 * BG_MAP_WIDTH
+    ld b, 20
+    ld a, TILE_BLANK
+.loop:
+    ld [hli], a
+    dec b
+    jr nz, .loop
     ret
 
 StatusText:
