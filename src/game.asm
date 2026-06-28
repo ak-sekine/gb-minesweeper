@@ -13,6 +13,12 @@ DEF CLEAR_TEXT_LEN     EQU 5
 DEF CLEAR_BG_X         EQU 7
 DEF CLEAR_BG_Y         EQU GAME_OVER_BG_Y
 DEF STATUS_MINE_DIGITS_X EQU STATUS_BG_X + 5
+DEF PAUSE_MENU_X       EQU 2
+DEF PAUSE_MENU_Y       EQU 6
+DEF PAUSE_MENU_WIDTH   EQU 16
+DEF PAUSE_MENU_RESUME  EQU 0
+DEF PAUSE_MENU_RESTART EQU 1
+DEF PAUSE_MENU_TITLE   EQU 2
 
 SECTION "Game WRAM", WRAM0
 
@@ -54,11 +60,19 @@ wGameRestartDrawPending::
     ds 1
 wGameTitleDrawPending::
     ds 1
+wGamePauseDrawPending::
+    ds 1
+wGameResumeDrawPending::
+    ds 1
 wGameFlagCount::
     ds 1
 wGameMineDrawPending::
     ds 1
 wGameTitle::
+    ds 1
+wGamePaused::
+    ds 1
+wGamePauseSelection::
     ds 1
 
 SECTION "Game", ROM0
@@ -74,8 +88,12 @@ Game_InitTitle::
     ld [wGameClear], a
     ld [wGameRestartDrawPending], a
     ld [wGameTitleDrawPending], a
+    ld [wGamePauseDrawPending], a
+    ld [wGameResumeDrawPending], a
     ld [wGameFlagCount], a
     ld [wGameMineDrawPending], a
+    ld [wGamePaused], a
+    ld [wGamePauseSelection], a
     inc a
     ld [wGameTitle], a
     ret
@@ -91,9 +109,13 @@ Game_Init::
     ld [wGameClear], a
     ld [wGameRestartDrawPending], a
     ld [wGameTitleDrawPending], a
+    ld [wGamePauseDrawPending], a
+    ld [wGameResumeDrawPending], a
     ld [wGameFlagCount], a
     ld [wGameMineDrawPending], a
     ld [wGameTitle], a
+    ld [wGamePaused], a
+    ld [wGamePauseSelection], a
     ret
 
 Game_UpdateDisplay::
@@ -106,15 +128,42 @@ Game_UpdateDisplay::
     jp Graphics_DrawTitleScreen
 
 .checkRestartDraw:
+    ld a, [wGameResumeDrawPending]
+    and a
+    jr z, .checkPauseDraw
+
+    xor a
+    ld [wGameResumeDrawPending], a
+    call Game_ClearPauseMenu
+    jp Game_EnqueueFullBoardRedraw
+
+.checkPauseDraw:
+    ld a, [wGamePauseDrawPending]
+    and a
+    jr z, .checkRestartDrawPending
+
+    xor a
+    ld [wGamePauseDrawPending], a
+    jp Game_DrawPauseMenu
+
+.checkRestartDrawPending:
     ld a, [wGameRestartDrawPending]
     and a
     jr z, .updateQueuedCell
+
+    ld a, [wGamePaused]
+    and a
+    ret nz
 
     xor a
     ld [wGameRestartDrawPending], a
     jp Graphics_ResetPlayfield
 
 .updateQueuedCell:
+    ld a, [wGamePaused]
+    and a
+    ret nz
+
     ld a, [wGameMineDrawPending]
     and a
     jr z, .checkDrawQueue
@@ -226,6 +275,16 @@ Game_HandleInput::
     jp Game_ReturnToTitleAfterEnd
 
 .handlePlaying:
+    ld a, [wGamePaused]
+    and a
+    jp nz, Game_HandlePauseInput
+
+    ld a, [wJoyPressed]
+    and PAD_START
+    jr z, .checkOpen
+    jp Game_OpenPauseMenu
+
+.checkOpen:
     ld a, [wJoyPressed]
     and PAD_A
     jr z, .checkFlag
@@ -244,6 +303,81 @@ Game_HandleInput::
     and PAD_B
     ret z
     jp Game_ToggleCursorFlag
+
+Game_OpenPauseMenu:
+    xor a
+    ld [wGameDrawHead], a
+    ld [wGameDrawTail], a
+    ld [wOpenQueueHead], a
+    ld [wOpenQueueTail], a
+    ld [wGamePauseSelection], a
+    inc a
+    ld [wGamePaused], a
+    ld [wGamePauseDrawPending], a
+    ret
+
+Game_HandlePauseInput:
+    ld a, [wJoyPressed]
+    and PAD_B
+    jp nz, Game_ResumeFromPause
+
+    ld a, [wJoyPressed]
+    and PAD_UP
+    jr z, .checkDown
+    ld a, [wGamePauseSelection]
+    and a
+    ret z
+    dec a
+    ld [wGamePauseSelection], a
+    ld a, 1
+    ld [wGamePauseDrawPending], a
+    ret
+
+.checkDown:
+    ld a, [wJoyPressed]
+    and PAD_DOWN
+    jr z, .checkConfirm
+    ld a, [wGamePauseSelection]
+    cp PAUSE_MENU_TITLE
+    ret nc
+    inc a
+    ld [wGamePauseSelection], a
+    ld a, 1
+    ld [wGamePauseDrawPending], a
+    ret
+
+.checkConfirm:
+    ld a, [wJoyPressed]
+    and PAD_A | PAD_START
+    ret z
+
+    ld a, [wGamePauseSelection]
+    cp PAUSE_MENU_RESTART
+    jp z, Game_RestartFromPause
+    cp PAUSE_MENU_TITLE
+    jp z, Game_ReturnToTitleFromPause
+    jp Game_ResumeFromPause
+
+Game_ResumeFromPause:
+    xor a
+    ld [wGamePaused], a
+    inc a
+    ld [wGameResumeDrawPending], a
+    ret
+
+Game_RestartFromPause:
+    call Board_Init
+    call Cursor_ResetPosition
+    call Game_Init
+    ld a, 1
+    ld [wGameRestartDrawPending], a
+    ret
+
+Game_ReturnToTitleFromPause:
+    call Game_InitTitle
+    ld a, 1
+    ld [wGameTitleDrawPending], a
+    ret
 
 Game_OpenWorkIndex:
     call Game_GetCellAddressForWorkIndex
@@ -467,6 +601,11 @@ Game_IsTitle::
     and a
     ret
 
+Game_IsPaused::
+    ld a, [wGamePaused]
+    and a
+    ret
+
 Game_CheckClear:
     ld hl, wBoard
     ld b, BOARD_CELL_COUNT
@@ -537,6 +676,98 @@ Game_UpdateMineDisplay:
     ld [hl], a
     ret
 
+Game_DrawPauseMenu:
+    call Game_ClearPauseMenu
+
+    ld de, BG_MAP + PAUSE_MENU_Y * BG_MAP_WIDTH + PAUSE_MENU_X
+    ld hl, PauseResumeText
+    ld c, PAUSE_MENU_RESUME
+    call Game_DrawPauseMenuItem
+
+    ld de, BG_MAP + (PAUSE_MENU_Y + 2) * BG_MAP_WIDTH + PAUSE_MENU_X
+    ld hl, PauseRestartText
+    ld c, PAUSE_MENU_RESTART
+    call Game_DrawPauseMenuItem
+
+    ld de, BG_MAP + (PAUSE_MENU_Y + 4) * BG_MAP_WIDTH + PAUSE_MENU_X
+    ld hl, PauseBackToTitleText
+    ld c, PAUSE_MENU_TITLE
+    jp Game_DrawPauseMenuItem
+
+Game_DrawPauseMenuItem:
+    ld a, [wGamePauseSelection]
+    cp c
+    ld a, TILE_BLANK
+    jr nz, .storeMarker
+    ld a, TILE_GREATER_THAN
+.storeMarker:
+    ld [de], a
+    inc de
+    ld a, TILE_BLANK
+    ld [de], a
+    inc de
+.textLoop:
+    ld a, [hli]
+    cp $FF
+    ret z
+    ld [de], a
+    inc de
+    jr .textLoop
+
+Game_ClearPauseMenu:
+    ld hl, BG_MAP + PAUSE_MENU_Y * BG_MAP_WIDTH + PAUSE_MENU_X
+    ld b, 5
+.row:
+    ld c, PAUSE_MENU_WIDTH
+    ld a, TILE_BLANK
+.column:
+    ld [hli], a
+    dec c
+    jr nz, .column
+    ld de, BG_MAP_WIDTH - PAUSE_MENU_WIDTH
+    add hl, de
+    dec b
+    jr nz, .row
+    ret
+
+Game_EnqueueFullBoardRedraw:
+    xor a
+    ld [wGameDrawHead], a
+    ld [wGameDrawTail], a
+    ld [wGameWorkIndex], a
+.loop:
+    call Game_GetVisibleTileForWorkIndex
+    ld [wGameWorkCell], a
+    call Game_EnqueueDrawWorkIndexWithTile
+    ld a, [wGameWorkIndex]
+    inc a
+    ld [wGameWorkIndex], a
+    cp BOARD_CELL_COUNT
+    jr c, .loop
+    ret
+
+Game_GetVisibleTileForWorkIndex:
+    call Game_GetCellAddressForWorkIndex
+    bit CELL_FLAG_BIT, [hl]
+    jr nz, .flag
+    bit CELL_OPENED_BIT, [hl]
+    jr z, .closed
+    bit CELL_MINE_BIT, [hl]
+    jr nz, .mine
+    ld a, [hl]
+    and $0F
+    add TILE_OPEN_0
+    ret
+.flag:
+    ld a, TILE_FLAG
+    ret
+.closed:
+    ld a, TILE_CLOSED
+    ret
+.mine:
+    ld a, TILE_MINE
+    ret
+
 GameOverText:
     db TILE_LETTER_A + 'G' - 'A'
     db TILE_LETTER_A + 'A' - 'A'
@@ -554,6 +785,27 @@ ClearText:
     db TILE_LETTER_A + 'E' - 'A'
     db TILE_LETTER_A + 'A' - 'A'
     db TILE_LETTER_A + 'R' - 'A'
+
+PauseResumeText:
+    db TILE_LETTER_A + 'R' - 'A', TILE_LETTER_A + 'E' - 'A'
+    db TILE_LETTER_A + 'S' - 'A', TILE_LETTER_A + 'U' - 'A'
+    db TILE_LETTER_A + 'M' - 'A', TILE_LETTER_A + 'E' - 'A', $FF
+
+PauseRestartText:
+    db TILE_LETTER_A + 'R' - 'A', TILE_LETTER_A + 'E' - 'A'
+    db TILE_LETTER_A + 'S' - 'A', TILE_LETTER_A + 'T' - 'A'
+    db TILE_LETTER_A + 'A' - 'A', TILE_LETTER_A + 'R' - 'A'
+    db TILE_LETTER_A + 'T' - 'A', $FF
+
+PauseBackToTitleText:
+    db TILE_LETTER_A + 'B' - 'A', TILE_LETTER_A + 'A' - 'A'
+    db TILE_LETTER_A + 'C' - 'A', TILE_LETTER_A + 'K' - 'A'
+    db TILE_BLANK
+    db TILE_LETTER_A + 'T' - 'A', TILE_LETTER_A + 'O' - 'A'
+    db TILE_BLANK
+    db TILE_LETTER_A + 'T' - 'A', TILE_LETTER_A + 'I' - 'A'
+    db TILE_LETTER_A + 'T' - 'A', TILE_LETTER_A + 'L' - 'A'
+    db TILE_LETTER_A + 'E' - 'A', $FF
 
 Game_InitOpenQueue:
     xor a

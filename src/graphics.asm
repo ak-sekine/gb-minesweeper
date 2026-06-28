@@ -59,10 +59,7 @@ LoadTiles:
     ld bc, TitleTilesEnd - TitleTiles
     call CopyBytes
 
-    ld hl, CopyrightTile
-    ld de, $8000 + TILE_COPYRIGHT * TILE_BYTES
-    ld bc, TILE_BYTES
-    jp CopyBytes
+    ret
 
 LoadGameTiles:
     ld hl, Tiles
@@ -79,7 +76,7 @@ LoadGameTiles:
     dec b
     jr nz, .clearBlankTile
 
-    ; The first 37 font tiles are ordered as 0-9, colon, then A-Z.
+    ; Font tiles are ordered as 0-9, colon, A-Z, then project symbols.
     ld hl, FontTiles
     ld de, $8000 + TILE_DIGIT_0 * TILE_BYTES
     ld bc, FONT_UI_TILE_COUNT * TILE_BYTES
@@ -298,13 +295,3 @@ TitleTilesEnd:
 
 TitleMap:
     INCBIN "obj/title_map.bin"
-
-CopyrightTile:
-    db %00111100, %00111100
-    db %01000010, %01000010
-    db %10011001, %10011001
-    db %10100001, %10100001
-    db %10100001, %10100001
-    db %10011001, %10011001
-    db %01000010, %01000010
-    db %00111100, %00111100
