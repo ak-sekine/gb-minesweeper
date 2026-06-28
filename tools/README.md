@@ -97,6 +97,33 @@ assets/font.png
 
 ---
 
+# BG画像タイル変換
+
+Indexed Color PNGを8×8タイルへ分割し、重複タイルを削除したタイルセットPNGと、1タイル1バイトのBGマップファイルを生成します。
+
+```bash
+python tools/convert_bg_image.py assets/title.png obj/title_tiles.png obj/title_map.bin
+```
+
+入力画像の条件:
+
+* Indexed Color PNG
+* 使用パレットインデックスは0〜3の4色
+* アルファチャンネルなし
+* 幅と高さが8の倍数
+* 重複削除後のタイル数が256以下
+
+出力ファイル:
+
+```text
+obj/title_tiles.png
+obj/title_map.bin
+```
+
+`obj/title_map.bin` は元画像を左上から右下へ8×8タイル単位で走査したタイル番号列です。
+
+---
+
 # requirements.txt
 
 Pythonライブラリはプロジェクトルートの
