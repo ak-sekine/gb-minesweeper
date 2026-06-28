@@ -8,6 +8,9 @@ DEF CELL_FLAG_BIT    EQU 6
 DEF GAME_OVER_TEXT_LEN EQU 9
 DEF GAME_OVER_BG_X     EQU 5
 DEF GAME_OVER_BG_Y     EQU 14
+DEF CLEAR_TEXT_LEN     EQU 5
+DEF CLEAR_BG_X         EQU 7
+DEF CLEAR_BG_Y         EQU GAME_OVER_BG_Y
 
 SECTION "Game WRAM", WRAM0
 
@@ -39,9 +42,11 @@ wGameCenterY::
     ds 1
 wGameTriggeredMineIndex::
     ds 1
-wGameOverMessageDrawIndex::
+wGameMessageDrawIndex::
     ds 1
 wGameOver::
+    ds 1
+wGameClear::
     ds 1
 
 SECTION "Game", ROM0
@@ -50,8 +55,9 @@ Game_Init::
     xor a
     ld [wGameDrawHead], a
     ld [wGameDrawTail], a
-    ld [wGameOverMessageDrawIndex], a
+    ld [wGameMessageDrawIndex], a
     ld [wGameOver], a
+    ld [wGameClear], a
     ret
 
 Game_UpdateDisplay::
@@ -59,7 +65,7 @@ Game_UpdateDisplay::
     ld b, a
     ld a, [wGameDrawTail]
     cp b
-    jp z, Game_UpdateGameOverMessage
+    jp z, Game_UpdateEndMessage
 
     ld a, b
     ld c, a
@@ -91,12 +97,12 @@ Game_UpdateDisplay::
     ld [hl], a
     ret
 
-Game_UpdateGameOverMessage:
+Game_UpdateEndMessage:
     ld a, [wGameOver]
     and a
-    ret z
+    jr z, .checkClear
 
-    ld a, [wGameOverMessageDrawIndex]
+    ld a, [wGameMessageDrawIndex]
     cp GAME_OVER_TEXT_LEN
     ret nc
 
@@ -109,14 +115,36 @@ Game_UpdateGameOverMessage:
     add hl, bc
     ld [hl], a
 
-    ld a, [wGameOverMessageDrawIndex]
+    ld a, [wGameMessageDrawIndex]
     inc a
-    ld [wGameOverMessageDrawIndex], a
+    ld [wGameMessageDrawIndex], a
+    ret
+
+.checkClear:
+    ld a, [wGameClear]
+    and a
+    ret z
+
+    ld a, [wGameMessageDrawIndex]
+    cp CLEAR_TEXT_LEN
+    ret nc
+
+    ld c, a
+    ld b, 0
+    ld hl, ClearText
+    add hl, bc
+    ld a, [hl]
+    ld hl, BG_MAP + CLEAR_BG_Y * BG_MAP_WIDTH + CLEAR_BG_X
+    add hl, bc
+    ld [hl], a
+
+    ld a, [wGameMessageDrawIndex]
+    inc a
+    ld [wGameMessageDrawIndex], a
     ret
 
 Game_HandleInput::
-    ld a, [wGameOver]
-    and a
+    call Game_IsEnded
     ret nz
 
     ld a, [wJoyPressed]
@@ -127,6 +155,9 @@ Game_HandleInput::
     ld [wGameWorkIndex], a
     call Board_PlaceMinesIfNeeded
     call Game_OpenWorkIndex
+    call Game_IsEnded
+    ret nz
+    call Game_CheckClear
     ret
 
 .checkFlag:
@@ -281,7 +312,7 @@ Game_TriggerGameOver:
     xor a
     ld [wGameDrawHead], a
     ld [wGameDrawTail], a
-    ld [wGameOverMessageDrawIndex], a
+    ld [wGameMessageDrawIndex], a
 
     ld a, [wGameWorkIndex]
     ld [wGameTriggeredMineIndex], a
@@ -326,6 +357,35 @@ Game_IsOver::
     and a
     ret
 
+Game_IsEnded::
+    ld a, [wGameOver]
+    ld b, a
+    ld a, [wGameClear]
+    or b
+    ret
+
+Game_CheckClear:
+    ld hl, wBoard
+    ld b, BOARD_CELL_COUNT
+.checkCell:
+    bit CELL_MINE_BIT, [hl]
+    jr nz, .nextCell
+    bit CELL_OPENED_BIT, [hl]
+    ret z
+.nextCell:
+    inc hl
+    dec b
+    jr nz, .checkCell
+    jp Game_TriggerClear
+
+Game_TriggerClear:
+    ld a, 1
+    ld [wGameClear], a
+
+    xor a
+    ld [wGameMessageDrawIndex], a
+    ret
+
 GameOverText:
     db TILE_LETTER_A + 'G' - 'A'
     db TILE_LETTER_A + 'A' - 'A'
@@ -335,6 +395,13 @@ GameOverText:
     db TILE_LETTER_A + 'O' - 'A'
     db TILE_LETTER_A + 'V' - 'A'
     db TILE_LETTER_A + 'E' - 'A'
+    db TILE_LETTER_A + 'R' - 'A'
+
+ClearText:
+    db TILE_LETTER_A + 'C' - 'A'
+    db TILE_LETTER_A + 'L' - 'A'
+    db TILE_LETTER_A + 'E' - 'A'
+    db TILE_LETTER_A + 'A' - 'A'
     db TILE_LETTER_A + 'R' - 'A'
 
 Game_InitOpenQueue:
